@@ -1,6 +1,32 @@
 # shellcheck disable=SC2148
 # shellcheck disable=SC2155
 
+function clashsetenv() {
+  local http_proxy_addr="http://${auth}127.0.0.1:${MIXED_PORT}"
+  local socks_proxy_addr="socks5h://${auth}127.0.0.1:${MIXED_PORT}"
+  local no_proxy_addr="localhost,127.0.0.1,::1"
+
+  export http_proxy=$http_proxy_addr
+  export https_proxy=$http_proxy
+  export HTTP_PROXY=$http_proxy
+  export HTTPS_PROXY=$http_proxy
+
+  export all_proxy=$socks_proxy_addr
+  export ALL_PROXY=$all_proxy
+
+  export no_proxy=$no_proxy_addr
+  export NO_PROXY=$no_proxy
+}
+function clashunsetenv() {
+    unset http_proxy
+    unset https_proxy
+    unset HTTP_PROXY
+    unset HTTPS_PROXY
+    unset all_proxy
+    unset ALL_PROXY
+    unset no_proxy
+    unset NO_PROXY
+}
 function clashon() {
     _get_proxy_port
     systemctl is-active "$BIN_KERNEL_NAME" >&/dev/null || {
@@ -9,26 +35,12 @@ function clashon() {
             return 1
         }
     }
-
     local auth=$(sudo "$BIN_YQ" '.authentication[0] // ""' "$CLASH_CONFIG_RUNTIME")
     [ -n "$auth" ] && auth=$auth@
 
-    local http_proxy_addr="http://${auth}127.0.0.1:${MIXED_PORT}"
-    local socks_proxy_addr="socks5h://${auth}127.0.0.1:${MIXED_PORT}"
-    local no_proxy_addr="localhost,127.0.0.1,::1"
+    # clashsetenv
 
-    export http_proxy=$http_proxy_addr
-    export https_proxy=$http_proxy
-    export HTTP_PROXY=$http_proxy
-    export HTTPS_PROXY=$http_proxy
-
-    export all_proxy=$socks_proxy_addr
-    export ALL_PROXY=$all_proxy
-
-    export no_proxy=$no_proxy_addr
-    export NO_PROXY=$no_proxy
-
-    _okcat '已开启代理环境'
+    # _okcat '已开启代理环境'
 }
 
 watch_proxy() {
@@ -40,15 +52,30 @@ watch_proxy() {
 function clashoff() {
     sudo systemctl stop "$BIN_KERNEL_NAME" && _okcat '已关闭代理环境' ||
         _failcat '关闭失败: 执行 "clashstatus" 查看日志' || return 1
+    # clashunsetenv
+}
 
-    unset http_proxy
-    unset https_proxy
-    unset HTTP_PROXY
-    unset HTTPS_PROXY
-    unset all_proxy
-    unset ALL_PROXY
-    unset no_proxy
-    unset NO_PROXY
+withclash() {
+  # Proxy settings — adjust as needed
+  # Check if a command was provided
+  if [ "$#" -eq 0 ]; then
+    echo "Usage: withclash <command> [args...]" >&2
+    return 1
+  fi
+
+  # Set proxy environment variables
+  clashsetenv >&/dev/null
+
+  # Run the command — stdin/stdout/stderr are passed through transparently
+  "$@"
+
+  # Capture exit code before unsetting
+  local EXIT_CODE=$?
+
+  # Unset proxy environment variables
+  clashunsetenv >&/dev/null
+
+  return $EXIT_CODE
 }
 
 clashrestart() {
@@ -68,7 +95,7 @@ function clashui() {
     local public_address="http://${public_ip:-公网}:${UI_PORT}/ui"
     # 内网ip
     # ip route get 1.1.1.1 | grep -oP 'src \K\S+'
-    local local_ip=$(hostname -I | awk '{print $1}')
+    local local_ip=$(hostname -i | awk '{print $1}')
     local local_address="http://${local_ip}:${UI_PORT}/ui"
     printf "\n"
     printf "╔═══════════════════════════════════════════════╗\n"
@@ -253,10 +280,7 @@ function clashctl() {
         cat <<EOF
 
 Usage:
-    clash      COMMAND  [OPTION]
-    mihomo     COMMAND  [OPTION]
     clashctl   COMMAND  [OPTION]
-    mihomoctl  COMMAND  [OPTION】
 
 Commands:
     on                   开启代理
@@ -271,16 +295,4 @@ Commands:
 EOF
         ;;
     esac
-}
-
-function mihomoctl() {
-    clashctl "$@"
-}
-
-function clash() {
-    clashctl "$@"
-}
-
-function mihomo() {
-    clashctl "$@"
 }
