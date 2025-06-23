@@ -50,7 +50,7 @@ EOF
 systemctl daemon-reload
 systemctl enable "$BIN_KERNEL_NAME" >&/dev/null || _failcat '💥' "设置自启失败" && _okcat '🚀' "已设置开机自启"
 
-clashui
+_clashui
 _okcat '🎉' 'enjoy 🎉'
 clashctl
 _quit
