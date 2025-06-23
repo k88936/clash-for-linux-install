@@ -344,12 +344,3 @@ _start_convert() {
 _stop_convert() {
     pkill -9 -f "$BIN_SUBCONVERTER" >&/dev/null
 }
-    while ! _is_bind "$BIN_SUBCONVERTER_PORT" >&/dev/null; do
-        sleep 1s
-        local now=$(date +%s)
-        [ $((now - start)) -gt 1 ] && _error_quit "订阅转换服务未启动，请检查日志：$BIN_SUBCONVERTER_LOG"
-    done
-}
-_stop_convert() {
-    pkill -9 -f "$BIN_SUBCONVERTER" >&/dev/null
-}
