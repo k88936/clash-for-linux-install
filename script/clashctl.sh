@@ -1,92 +1,39 @@
 # shellcheck disable=SC2148
 # shellcheck disable=SC2155
 
-function clashsetenv() {
-  local auth=$(sudo "$BIN_YQ" '.authentication[0] // ""' "$CLASH_CONFIG_RUNTIME")
-  [ -n "$auth" ] && auth=$auth@
-  local http_proxy_addr="http://${auth}127.0.0.1:${MIXED_PORT}"
-  local socks_proxy_addr="socks5h://${auth}127.0.0.1:${MIXED_PORT}"
-  local no_proxy_addr="localhost,127.0.0.1,::1"
 
-  export http_proxy=$http_proxy_addr
-  export https_proxy=$http_proxy
-  export HTTP_PROXY=$http_proxy
-  export HTTPS_PROXY=$http_proxy
-
-  export all_proxy=$socks_proxy_addr
-  export ALL_PROXY=$all_proxy
-
-  export no_proxy=$no_proxy_addr
-  export NO_PROXY=$no_proxy
-}
-function clashunsetenv() {
-    unset http_proxy
-    unset https_proxy
-    unset HTTP_PROXY
-    unset HTTPS_PROXY
-    unset all_proxy
-    unset ALL_PROXY
-    unset no_proxy
-    unset NO_PROXY
-}
-function clashon() {
+function _clashon() {
     _get_proxy_port
+    _check_proxy_port
     systemctl is-active "$BIN_KERNEL_NAME" >&/dev/null || {
         sudo systemctl start "$BIN_KERNEL_NAME" >/dev/null || {
-            _failcat '启动失败: 执行 clashstatus 查看日志'
+            _failcat '启动失败: 执行 _clashstatus 查看日志'
             return 1
         }
     }
 
-    # clashsetenv
+    # _clash_set_env
 
     # _okcat '已开启代理环境'
 }
 
-watch_proxy() {
-    [ -z "$http_proxy" ] && [[ $- == *i* ]] && {
-        _is_root || _failcat '未检测到代理变量，可执行 clashon 开启代理环境' && clashon
-    }
-}
 
-function clashoff() {
+function _clashoff() {
     sudo systemctl stop "$BIN_KERNEL_NAME" && _okcat '已关闭代理环境' ||
-        _failcat '关闭失败: 执行 "clashstatus" 查看日志' || return 1
-    # clashunsetenv
+        _failcat '关闭失败: 执行 _"clashstatus" 查看日志' || return 1
+    _clash_unset_env
+
 }
 
-withclash() {
-  # Proxy settings — adjust as needed
-  # Check if a command was provided
-  if [ "$#" -eq 0 ]; then
-    echo "Usage: withclash <command> [args...]" >&2
-    return 1
-  fi
-
-  # Set proxy environment variables
-  clashsetenv >&/dev/null
-
-  # Run the command — stdin/stdout/stderr are passed through transparently
-  "$@"
-
-  # Capture exit code before unsetting
-  local EXIT_CODE=$?
-
-  # Unset proxy environment variables
-  clashunsetenv >&/dev/null
-
-  return $EXIT_CODE
+_clashrestart() {
+    { _clashoff && _clashon; } >&/dev/null
 }
 
-clashrestart() {
-    { clashoff && clashon; } >&/dev/null
-}
-
-function clashstatus() {
+function _clashstatus() {
     sudo systemctl status "$BIN_KERNEL_NAME" "$@"
 }
 
-function clashui() {
+function _clashui() {
     _get_ui_port
     # 公网ip
     # ifconfig.me
@@ -120,10 +67,10 @@ _merge_config_restart() {
         sudo cat $backup | sudo tee "$CLASH_CONFIG_RUNTIME" >&/dev/null
         _error_quit "验证失败：请检查 Mixin 配置"
     }
-    clashrestart
+    _clashrestart
 }
 
-function clashsecret() {
+function _clashsecret() {
     case "$#" in
     0)
         _okcat "当前密钥：$(sudo "$BIN_YQ" '.secret // ""' "$CLASH_CONFIG_RUNTIME")"
@@ -166,7 +113,7 @@ _tunon() {
     _okcat "Tun 模式已开启"
 }
 
-function clashtun() {
+function _clashtun() {
     case "$1" in
     on)
         _tunon
@@ -180,7 +127,7 @@ function clashtun() {
     esac
 }
 
-function clashupdate() {
+function _clashupdate() {
     local url=$(cat "$CLASH_CONFIG_URL")
     local is_auto
 
@@ -206,7 +153,7 @@ function clashupdate() {
 
     # 如果是自动更新模式，则设置定时任务
     [ "$is_auto" = true ] && {
-        sudo grep -qs 'clashupdate' "$CLASH_CRON_TAB" || echo "0 0 */2 * * $_SHELL -i -c 'clashupdate $url'" | sudo tee -a "$CLASH_CRON_TAB" >&/dev/null
+        sudo grep -qs '_clashupdate' "$CLASH_CRON_TAB" || echo "0 0 */2 * * $_SHELL -i -c '_clashupdate $url'" | sudo tee -a "$CLASH_CRON_TAB" >&/dev/null
         _okcat "已设置定时更新订阅" && return 0
     }
 
@@ -228,7 +175,7 @@ function clashupdate() {
     _okcat '✅' "[$(date +"%Y-%m-%d %H:%M:%S")] 订阅更新成功：$url" | sudo tee -a "${CLASH_UPDATE_LOG}" >&/dev/null
 }
 
-function clashmixin() {
+function _clashmixin() {
     case "$1" in
     -e)
         sudo vim "$CLASH_CONFIG_MIXIN" && {
@@ -247,34 +194,34 @@ function clashmixin() {
 function clashctl() {
     case "$1" in
     on)
-        clashon
+        _clashon
         ;;
     off)
-        clashoff
+        _clashoff
         ;;
     ui)
-        clashui
+        _clashui
         ;;
     status)
         shift
-        clashstatus "$@"
-        ;;
+        _clashstatus "$@"
+        _;;
 
     tun)
         shift
-        clashtun "$@"
+        _clashtun "$@"
         ;;
     mixin)
         shift
-        clashmixin "$@"
+        _clashmixin "$@"
         ;;
     secret)
         shift
-        clashsecret "$@"
+        _clashsecret "$@"
         ;;
     update)
         shift
-        clashupdate "$@"
+        _clashupdate "$@"
         ;;
     *)
         cat <<EOF

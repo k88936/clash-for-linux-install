@@ -8,7 +8,6 @@ URL_GH_PROXY='https://gh-proxy.com/'
 URL_CLASH_UI="http://board.zash.run.place"
 
 SCRIPT_BASE_DIR='./script'
-SCRIPT_FISH="${SCRIPT_BASE_DIR}/clashctl.fish"
 
 RESOURCES_BASE_DIR='./resources'
 RESOURCES_BIN_DIR="${RESOURCES_BASE_DIR}/bin"
@@ -45,9 +44,6 @@ _set_var() {
     [ -n "$ZSH_VERSION" ] && {
         _SHELL=zsh
     }
-    [ -n "$fish_version" ] && {
-        _SHELL=fish
-    }
 
     # rc文件路径
     command -v bash >&/dev/null && {
@@ -55,9 +51,6 @@ _set_var() {
     }
     command -v zsh >&/dev/null && {
         SHELL_RC_ZSH="${home}/.zshrc"
-    }
-    command -v fish >&/dev/null && {
-        SHELL_RC_FISH="${home}/.config/fish/conf.d/clashctl.fish"
     }
 
     # 定时任务路径
@@ -93,13 +86,13 @@ _set_bin
 _set_rc() {
     [ "$1" = "unset" ] && {
         sed -i "\|$CLASH_SCRIPT_DIR|d" "$SHELL_RC_BASH" "$SHELL_RC_ZSH" 2>/dev/null
-        rm -f "$SHELL_RC_FISH" 2>/dev/null
         return
     }
-
-    echo "source $CLASH_SCRIPT_DIR/common.sh && source $CLASH_SCRIPT_DIR/clashctl.sh && watch_proxy" |
-        tee -a "$SHELL_RC_BASH" "$SHELL_RC_ZSH" >&/dev/null
-    [ -n "$SHELL_RC_FISH" ] && /usr/bin/install $SCRIPT_FISH "$SHELL_RC_FISH"
+    echo "source $CLASH_SCRIPT_DIR/common.sh" | tee -a "$SHELL_RC_BASH" "$SHELL_RC_ZSH" >&/dev/null
+    echo "source $CLASH_SCRIPT_DIR/clashuse.sh" | tee -a "$SHELL_RC_BASH" "$SHELL_RC_ZSH" >&/dev/null
+    [ "$1" = "admin" ] && {
+        echo "source $CLASH_SCRIPT_DIR/clashctl.sh" | tee -a "$SHELL_RC_BASH" "$SHELL_RC_ZSH" >&/dev/null
+    }
 }
 
 # 默认集成、安装mihomo内核
@@ -132,18 +125,15 @@ _get_random_port() {
     ! _is_bind "$randomPort" && { echo "$randomPort" && return; }
     _get_random_port
 }
+function _check_proxy_port() {
+    _is_already_in_use "$MIXED_PORT" "$BIN_KERNEL_NAME" && {
+        _error_quit "端口占用：${MIXED_PORT}，请手动修改配置文件或释放端口"
+    }
+}
 
 function _get_proxy_port() {
-    local mixed_port=$(sudo "$BIN_YQ" '.mixed-port // ""' $CLASH_CONFIG_RUNTIME)
+    local mixed_port=$("$BIN_YQ" '.mixed-port // ""' $CLASH_CONFIG_RUNTIME)
     MIXED_PORT=${mixed_port:-7890}
-
-    _is_already_in_use "$MIXED_PORT" "$BIN_KERNEL_NAME" && {
-        local newPort=$(_get_random_port)
-        local msg="端口占用：${MIXED_PORT} 🎲 随机分配：$newPort"
-        sudo "$BIN_YQ" -i ".mixed-port = $newPort" $CLASH_CONFIG_RUNTIME
-        MIXED_PORT=$newPort
-        _failcat '🎯' "$msg"
-    }
 }
 
 function _get_ui_port() {
@@ -345,6 +335,15 @@ _start_convert() {
     local start=$(date +%s)
     # 子shell运行，屏蔽kill时的输出
     (sudo "$BIN_SUBCONVERTER" 2>&1 | sudo tee "$BIN_SUBCONVERTER_LOG" >/dev/null &)
+    while ! _is_bind "$BIN_SUBCONVERTER_PORT" >&/dev/null; do
+        sleep 1s
+        local now=$(date +%s)
+        [ $((now - start)) -gt 1 ] && _error_quit "订阅转换服务未启动，请检查日志：$BIN_SUBCONVERTER_LOG"
+    done
+}
+_stop_convert() {
+    pkill -9 -f "$BIN_SUBCONVERTER" >&/dev/null
+}
     while ! _is_bind "$BIN_SUBCONVERTER_PORT" >&/dev/null; do
         sleep 1s
         local now=$(date +%s)

@@ -31,7 +31,7 @@ echo "$url" >"$CLASH_CONFIG_URL"
 /bin/ls "$RESOURCES_BASE_DIR" | grep -Ev 'zip|png' | xargs -I {} /bin/cp -rf "${RESOURCES_BASE_DIR}/{}" "$CLASH_BASE_DIR"
 tar -xf "$ZIP_UI" -C "$CLASH_BASE_DIR"
 
-_set_rc
+_set_rc admin
 _set_bin
 _merge_config_restart
 cat <<EOF >"/etc/systemd/system/${BIN_KERNEL_NAME}.service"
