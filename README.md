@@ -1,3 +1,55 @@
+
+# fork 修改说明
+
+
+## 功能分离重构
+
+本 fork 对原项目进行了模块化重构，将用户环境管理功能从核心控制模块中分离出来：
+
+### 1. 新增 clashuse.sh 模块
+
+创建了专门的用户环境管理模块 clashuse.sh，包含以下功能：
+  - `withclash()` - 在代理环境中执行命令
+
+### 2. 简化 clashctl.sh 模块
+
+精简了 clashctl.sh 的职责，专注于核心服务管理：
+
+### 3. 用户安装脚本
+
+添加了轻量级用户安装选项：
+
+- user_install.sh - 仅配置用户环境变量
+- user_uninstall.sh - 清除用户环境配置
+
+## 设计优势
+
+1. **职责分离**：核心服务管理与用户环境管理解耦
+2. **模块化**：功能模块独立，便于维护和扩展
+3. **灵活性**：用户可选择性安装所需功能
+4. **向下兼容**：保持原有命令接口不变
+
+## 使用方式
+
+### 完整安装(即root用户使用)
+```bash
+sudo bash install.sh  # 安装完整功能
+```
+
+### 仅用户环境(在root安装后的server中使用,仅包含使用功能)
+```bash
+bash user_install.sh     # 仅配置用户环境 
+bash user_uninstall.sh   # 清除用户环境配置
+```
+
+### 代理命令执行
+```bash
+withclash curl https://example.com  # 在代理环境中执行命令,以保护环境变量
+```
+
+
+
+
 # Linux 一键安装 Clash
 
 ![GitHub License](https://img.shields.io/github/license/nelvko/clash-for-linux-install)
