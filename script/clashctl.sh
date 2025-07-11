@@ -110,7 +110,10 @@ _tunon() {
         _tunoff >&/dev/null
         _error_quit '不支持的内核版本'
     }
-    _okcat "Tun 模式已开启"
+
+    # 开启TUN模式时卸载环境变量，避免冲突
+    _unset_proxy_env
+    _okcat "Tun 模式已开启，已自动卸载环境变量代理"
 }
 
 function _clashtun() {
@@ -230,14 +233,19 @@ Usage:
     clashctl   COMMAND  [OPTION]
 
 Commands:
-    on                   开启代理
-    off                  关闭代理
-    ui                   面板地址
-    status               内核状况
-    tun      [on|off]    Tun 模式
-    mixin    [-e|-r]     Mixin 配置
-    secret   [SECRET]    Web 密钥
-    update   [auto|log]  更新订阅
+    on                      开启代理
+    off                     关闭代理
+    proxy    [on|off]       系统代理
+    ui                      面板地址
+    status                  内核状况
+    tun      [on|off]       Tun 模式
+    mixin    [-e|-r]        Mixin 配置
+    secret   [SECRET]       Web 密钥
+    update   [auto|log]     更新订阅
+
+说明:
+    - clashon: 启动代理程序，并开启系统代理
+    - clashproxy: 仅控制系统代理，不影响代理程序
 
 EOF
         ;;
