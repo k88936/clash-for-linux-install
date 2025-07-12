@@ -14,7 +14,7 @@ tar -xf "$ZIP_SUBCONVERTER" -C "$RESOURCES_BIN_DIR"
 tar -xf "$ZIP_YQ" -C "${RESOURCES_BIN_DIR}"
 # shellcheck disable=SC2086
 /bin/mv -f ${RESOURCES_BIN_DIR}/yq_* "${RESOURCES_BIN_DIR}/yq"
-
+[ -f "$HOME/mixin.yaml" ] && cp "$HOME/mixin.yaml" "$RESOURCES_CONFIG_MIXIN"
 _set_bin "$RESOURCES_BIN_DIR"
 _valid_config "$RESOURCES_CONFIG" || {
     echo -n "$(_okcat '✈️ ' '输入订阅：')"
